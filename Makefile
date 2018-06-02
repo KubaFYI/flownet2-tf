@@ -1,17 +1,18 @@
 # Makefile
-
+# -I$(TENSORFLOW)/tensorflow/contrib/makefile/downloads/nsync/public 
 TF_INC = `python -c "import tensorflow; print(tensorflow.sysconfig.get_include())"`
 
 ifndef CUDA_HOME
-    CUDA_HOME := /usr/local/cuda
+    CUDA_HOME := /usr/local/cuda-9.0
 endif
 
 CC        = gcc -O2 -pthread
 CXX       = g++
 GPUCC     = nvcc
-CFLAGS    = -std=c++11 -I$(TF_INC) -I"$(CUDA_HOME)/include" -DGOOGLE_CUDA=1
-GPUCFLAGS = -c
+CFLAGS    = -std=c++11 -I$(TF_INC) -I"$(CUDA_HOME)/include" -I"/usr/local/" -DGOOGLE_CUDA=1
+GPUCFLAGS = -c -gencode arch=compute_61,code=sm_61 --expt-relaxed-constexpr
 LFLAGS    = -pthread -shared -fPIC
+TF_LFLAGS = `python -c "import tensorflow as tf; print(' '.join(tf.sysconfig.get_link_flags()))"`
 GPULFLAGS = -x cu -Xcompiler -fPIC
 CGPUFLAGS = -L$(CUDA_HOME)/lib -L$(CUDA_HOME)/lib64 -lcudart
 
@@ -61,22 +62,22 @@ all: preprocessing downsample correlation flowwarp
 preprocessing:
 	$(GPUCC) -g $(CFLAGS) $(GPUCFLAGS) $(GPU_SRC_DATA_AUG) $(GPULFLAGS) $(GPUDEF) -o $(GPU_PROD_DATA_AUG)
 	$(GPUCC) -g $(CFLAGS) $(GPUCFLAGS) $(GPU_SRC_FLOW) $(GPULFLAGS) $(GPUDEF) -o $(GPU_PROD_FLOW)
-	$(CXX) -g $(CFLAGS)  $(PREPROCESSING_SRC) $(GPU_PROD_DATA_AUG) $(GPU_PROD_FLOW) $(LFLAGS) $(CGPUFLAGS) -o $(PREPROCESSING_PROD)
+	$(CXX) -g $(CFLAGS)  $(PREPROCESSING_SRC) $(GPU_PROD_DATA_AUG) $(GPU_PROD_FLOW) $(LFLAGS) $(CGPUFLAGS) -o $(PREPROCESSING_PROD) $(TF_LFLAGS)
 
 downsample:
 	$(GPUCC) -g $(CFLAGS) $(GPUCFLAGS) $(GPU_SRC_DOWNSAMPLE) $(GPULFLAGS) $(GPUDEF) -o $(GPU_PROD_DOWNSAMPLE)
-	$(CXX) -g $(CFLAGS)  $(DOWNSAMPLE_SRC) $(GPU_PROD_DOWNSAMPLE) $(LFLAGS) $(CGPUFLAGS) -o $(DOWNSAMPLE_PROD)
+	$(CXX) -g $(CFLAGS)  $(DOWNSAMPLE_SRC) $(GPU_PROD_DOWNSAMPLE) $(LFLAGS) $(CGPUFLAGS) -o $(DOWNSAMPLE_PROD) $(TF_LFLAGS)
 
 correlation:
 	$(GPUCC) -g $(CFLAGS) $(GPUCFLAGS) $(GPU_SRC_CORRELATION) $(GPULFLAGS) $(GPUDEF) -o $(GPU_PROD_CORRELATION)
 	$(GPUCC) -g $(CFLAGS) $(GPUCFLAGS) $(GPU_SRC_CORRELATION_GRAD) $(GPULFLAGS) $(GPUDEF) -o $(GPU_PROD_CORRELATION_GRAD)
 	$(GPUCC) -g $(CFLAGS) $(GPUCFLAGS) $(GPU_SRC_PAD) $(GPULFLAGS) $(GPUDEF) -o $(GPU_PROD_PAD)
-	$(CXX) -g $(CFLAGS)  $(CORRELATION_SRC) $(GPU_PROD_CORRELATION) $(GPU_PROD_CORRELATION_GRAD) $(GPU_PROD_PAD) $(LFLAGS) $(CGPUFLAGS) -o $(CORRELATION_PROD)
+	$(CXX) -g $(CFLAGS)  $(CORRELATION_SRC) $(GPU_PROD_CORRELATION) $(GPU_PROD_CORRELATION_GRAD) $(GPU_PROD_PAD) $(LFLAGS) $(CGPUFLAGS) -o $(CORRELATION_PROD) $(TF_LFLAGS)
 
 flowwarp:
 	$(GPUCC) -g $(CFLAGS) $(GPUCFLAGS) $(GPU_SRC_FLOWWARP) $(GPULFLAGS) $(GPUDEF) -o $(GPU_PROD_FLOWWARP)
 	$(GPUCC) -g $(CFLAGS) $(GPUCFLAGS) $(GPU_SRC_FLOWWARP_GRAD) $(GPULFLAGS) $(GPUDEF) -o $(GPU_PROD_FLOWWARP_GRAD)
-	$(CXX) -g $(CFLAGS)  $(FLOWWARP_SRC) $(GPU_PROD_FLOWWARP) $(GPU_PROD_FLOWWARP_GRAD) $(LFLAGS) $(CGPUFLAGS) -o $(FLOWWARP_PROD)
+	$(CXX) -g $(CFLAGS)  $(FLOWWARP_SRC) $(GPU_PROD_FLOWWARP) $(GPU_PROD_FLOWWARP_GRAD) $(LFLAGS) $(CGPUFLAGS) -o $(FLOWWARP_PROD) $(TF_LFLAGS)
 
 clean:
 	rm -f $(PREPROCESSING_PROD) $(GPU_PROD_FLOW) $(GPU_PROD_DATA_AUG) $(DOWNSAMPLE_PROD) $(GPU_PROD_DOWNSAMPLE)
